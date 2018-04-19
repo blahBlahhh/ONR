@@ -1,0 +1,4 @@
+__pycache__/
+checkpoints/
+graphs/
+MNIST_Data/
