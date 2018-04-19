@@ -1,0 +1,172 @@
+<!doctype html>
+<html>
+<head>
+	<meta charset="UTF-8"/>
+	<title>ONR</title>
+	<style>
+		body
+		{
+			background-color: #585767;
+		}
+
+		#canvas
+		{
+			border-radius: 5%;
+		}
+	</style>
+</head>
+<body onload="onLoadFunction()">
+	<div id="main-container" style="text-align: center;">
+		<h1>ONR</h1>
+		<canvas id="canvas" width="280" height="280"></canvas>
+
+		<form name="input">
+			<input type="button" value="Recognize" onclick="test()"/>
+			<input type="button" value="Clear" onclick="resetCanvas()"/>
+		</form>
+		<h2 id="wait" style="color: white;"></h2>
+		<h2 id="ans" style="color: white;"></h2>
+	</div>
+
+	<script>
+		var img = [];  // data of the canvas
+		var canvas_width = 280;  // actual width and height of the canvas
+		var canvas_height = 280;
+		var trans_rate = 10; // will turn into 28 pixels
+
+		var wait = document.getElementById('wait');
+		var ans = document.getElementById('ans');
+
+		function onLoadFunction()
+		{
+		    resetCanvas();
+		}
+
+		function resetCanvas()
+		{
+		    var canvas = document.getElementById("canvas");
+		    canvas.isDrawing = false;
+		    var context = canvas.getContext("2d");
+
+		    wait.innerHTML = "";
+		    ans.innerHTML = "";
+
+		    context.fillStyle = "#000000";
+		    context.fillRect(0, 0, canvas_width, canvas_height);
+
+		    for(var i=0; i<canvas_width/trans_rate; i++)
+			{
+			    img[i] = [];
+			    for(var j=0; j<canvas_height/trans_rate; j++)
+				{
+					img[i][j] = 0;
+				}
+			}
+			drawGrid(context);
+
+			this.onmousemove = function(e)
+			{
+			    if(e.clientX - canvas.offsetLeft > 0 && e.clientX - canvas.offsetLeft < 280 && e.clientY - canvas.offsetTop > 0 && e.clientY - canvas.offsetTop < 280)
+			    {
+                    if (canvas.isDrawing)
+                        fillSquare(context, e.clientX - canvas.offsetLeft, e.clientY - canvas.offsetTop);
+                }
+			}.bind(this);
+
+        	this.onmousedown = function(e)
+			{
+			    if(e.clientX - canvas.offsetLeft > 0 && e.clientX - canvas.offsetLeft < 280 && e.clientY - canvas.offsetTop > 0 && e.clientY - canvas.offsetTop < 280) // need fixing
+				{
+				    canvas.isDrawing = true;
+		    		fillSquare(context, e.clientX - canvas.offsetLeft, e.clientY - canvas.offsetTop)
+				}
+
+			}.bind(this);
+
+        	this.onmouseup = function()
+			{
+			    canvas.isDrawing = false;
+			}.bind(this);
+		}
+
+		function drawGrid(context)
+		{
+		    for(var x=trans_rate, y=trans_rate; x<canvas_width; x+=trans_rate, y+=trans_rate)
+			{
+			    context.strokeStyle = "#34323d";
+
+				context.beginPath();
+				context.moveTo(x, 0);
+				context.lineTo(x, canvas_width);
+				context.stroke();
+
+				context.beginPath();
+				context.moveTo(0, y);
+				context.lineTo(canvas_height, y);
+				context.stroke();
+			}
+		}
+
+		function fillSquare(context, raw_x, raw_y)
+		{
+			// stroke width is 2 pixels
+			// 1. Math.floor() -> get the large pixel's coordinate (0~28)
+			// 2. * trans_rate -> get the real pixel's coordinate, the upper left point of the large (0~280)
+			// 3. - trans_rate -> get the real upper left point according to the stroke width
+			var x = raw_x/trans_rate | 0;
+			var y = raw_y/trans_rate | 0;
+
+			context.fillStyle = "#FFFFFF";
+			context.fillRect(x*trans_rate-trans_rate, y*trans_rate-trans_rate, 2*trans_rate, 2*trans_rate);
+
+			// change the corresponding data from 0 (black) into 1 (white)
+			// x and y is in range 0~28
+			img[y][x] = 1;
+			img[y-1][x] = 1;
+			img[y][x-1] = 1;
+			img[y-1][x-1] = 1;
+		}
+
+		function test()
+		{
+		    var json = {image: img};
+		    sendData(json);
+		}
+
+		function receiveResponse(xhr)
+		{
+			if(xhr.status !== 200)
+			{
+			    alert("Server returned status " + xhr.status);
+			}
+			else
+			{
+                if(xhr.responseText)
+                {
+                    var response = JSON.parse(xhr.responseText);
+					wait.innerHTML = "I guess the number is...";
+					setTimeout(function(){
+					    ans.innerHTML = "Is it " + response['result'] + "?";
+					}, 300);
+                }
+            }
+		}
+
+		function sendData(json)
+		{
+			var msg = JSON.stringify(json);
+			var xhr = new XMLHttpRequest();
+			xhr.open('POST', 'http://localhost:8000/index.html', true);
+			xhr.send(msg);
+
+			xhr.onload = function(){
+			    receiveResponse(xhr);
+			}.bind(this);
+
+			xhr.onerror = function(e){
+			    alert("Error occurred while connecting to server:" + e.target.statusText);
+			}.bind(this);
+        }
+	</script>
+</body>
+</html>
