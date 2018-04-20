@@ -169,7 +169,7 @@ class Convnet:
         writer.close()
 
     def predict(self, sess, img):
-        self.img = tf.reshape(tf.image.convert_image_dtype(img, tf.float32), shape=[1, 28, 28, 1])
+        self.img = tf.reshape(tf.cast(img, tf.float32), shape=[1, 28, 28, 1])
         self._create_model()
 
         saver = tf.train.Saver()
@@ -178,10 +178,11 @@ class Convnet:
             saver.restore(sess, ckpt.model_checkpoint_path)
         saver.restore(sess, ckpt.model_checkpoint_path)
 
+        self.img = tf.reshape(tf.cast(img, tf.float32), shape=[1, 28, 28, 1])
+
         pred = tf.nn.softmax(self.logits)
         prediction = tf.argmax(pred, 1)
-        logit = sess.run(pred)
-        result = sess.run(prediction)[0]
+        logit, result = sess.run((pred, prediction))
         print(logit)
         print(result)
 
