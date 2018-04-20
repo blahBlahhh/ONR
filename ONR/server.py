@@ -1,14 +1,15 @@
 import json
+import os
 from http import server
 import numpy as np
 
-import number_recognizer
+import tensorflow as tf
 
-host = 'localhost'
-port = 8000
+import ONR.model as model
 
 
 class JSONHandler(server.BaseHTTPRequestHandler):
+
     def do_POST(self):
         response_code = 200
         response = ""
@@ -16,14 +17,16 @@ class JSONHandler(server.BaseHTTPRequestHandler):
         content = self.rfile.read(var_len)
         payload = json.loads(content)
 
-        try:
+        with tf.Session() as sess:
+            nn = model.Convnet()
+            # try:
             image = np.array(payload.get("image"))
             print(image)
-            result = int(recognizer.predict(image))
+            result = int(nn.predict(sess, image))
             print("Is the number %d ?" % result)
             response = {"result": result}
-        except:
-            response_code = 500
+            # except:
+            #     response_code = 500
 
         self.send_response(response_code)
         self.send_header("Content-type", "application/json")
@@ -44,8 +47,9 @@ class JSONHandler(server.BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    recognizer = number_recognizer.NumberRecognizer()
-    recognizer.recognize()
+    host = 'localhost'
+    port = 8000
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
     server_class = server.HTTPServer
     httpd = server_class((host, port), JSONHandler)

@@ -5,11 +5,9 @@ import os
 
 
 def get_mnist_dataset(batch_size):
-    # Step 1: Read in data
-    mnist_folder = 'MNIST_Data/'
+    mnist_folder = '../MNIST_Data/'
     train, val, test = read_mnist(mnist_folder, flatten=False)
 
-    # Step 2: Create datasets and iterator
     train_data = tf.data.Dataset.from_tensor_slices(train)
     train_data = train_data.shuffle(10000)  # if you want to shuffle your data
     train_data = train_data.batch(batch_size)
@@ -32,6 +30,7 @@ def read_mnist(path, flatten=True, num_train=55000):
     train_img, train_labels = imgs[train_idx, :], labels[train_idx, :]
     val_img, val_labels = imgs[val_idx, :], labels[val_idx, :]
     test = parse_data(path, 't10k', flatten)
+
     return (train_img, train_labels), (val_img, val_labels), test
 
 
@@ -50,7 +49,7 @@ def parse_data(path, dataset, flatten):
     with open(img_file, 'rb') as file:
         _, num, rows, cols = struct.unpack(">IIII", file.read(16))
         imgs = np.fromfile(file, dtype=np.uint8).reshape(num, rows, cols)  # uint8
-        imgs = imgs.astype(np.float32) / 255.0
+        imgs = np.round(imgs.astype(np.float32) / 255.0)
         if flatten:
             imgs = imgs.reshape([num, -1])
 
@@ -58,8 +57,7 @@ def parse_data(path, dataset, flatten):
 
 
 if __name__ == "__main__":
-    imgs = get_mnist_dataset(55)
-    for i in imgs:
-        print(i)
+    imgs = read_mnist('../MNIST_Data/', True, 1)
+    print(imgs[0])
     # <BatchDataset shapes: ((?, 28, 28), (?, 10)), types: (tf.float32, tf.float64)>
     # <BatchDataset shapes: ((?, 28, 28), (?, 10)), types: (tf.float32, tf.float64)>
