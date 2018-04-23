@@ -1,2 +1,2 @@
 # ONR
-Tensorflow CNN on MNIST dataset with C/S interface for number recognition
+Tensorflow CNN on MNIST dataset with B/S interface for number recognition
