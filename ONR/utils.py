@@ -4,6 +4,14 @@ import tensorflow as tf
 import os
 
 
+def safe_mkdir(path):
+    """ Create a directory if there isn't one already. """
+    try:
+        os.mkdir(path)
+    except OSError:
+        pass
+
+
 def get_mnist_dataset(batch_size):
     mnist_folder = '../MNIST_Data/'
     train, val, test = read_mnist(mnist_folder, flatten=False)

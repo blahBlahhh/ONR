@@ -1,16 +1,17 @@
+import ONR.model as model
+
 import json
 import os
 from http import server
+
 import numpy as np
-
 import tensorflow as tf
-
-import ONR.model as model
 
 
 class JSONHandler(server.BaseHTTPRequestHandler):
 
     def do_POST(self):
+        """Receives and sends json files"""
         response_code = 200
         response = ""
         var_len = int(self.headers.get('Content-Length'))
@@ -19,14 +20,14 @@ class JSONHandler(server.BaseHTTPRequestHandler):
 
         with tf.Session() as sess:
             nn = model.Convnet()
-            # try:
-            image = np.array(payload.get("image"))
-            print(image)
-            result = int(nn.predict(sess, image))
-            print("Is the number %d ?" % result)
-            response = {"result": result}
-            # except:
-            #     response_code = 500
+            try:
+                image = np.array(payload.get("image"))
+                print(image)
+                result = int(nn.predict(sess, image))
+                print("Is the number %d ?" % result)
+                response = {"result": result}
+            except:
+                response_code = 500
 
         self.send_response(response_code)
         self.send_header("Content-type", "application/json")
@@ -34,7 +35,8 @@ class JSONHandler(server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(bytes(json.dumps(response), 'utf-8'))
 
-    def do_GET(self):  # works fine for browser to get the page source
+    def do_GET(self):
+        """parse the web page (index.html)"""
         response_code = 200
         try:
             with open('index.html', 'rb') as f:
@@ -50,6 +52,12 @@ if __name__ == "__main__":
     host = 'localhost'
     port = 8000
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
+    if not os.path.exists('../checkpoints/checkpoint'):
+        print("No checkpoints found! Will try to train the model before opening server.")
+        model = model.Convnet()
+        model.build()
+        model.train(n_epochs=30)
 
     server_class = server.HTTPServer
     httpd = server_class((host, port), JSONHandler)

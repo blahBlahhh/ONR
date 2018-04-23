@@ -1,7 +1,6 @@
-import ONR.mnist_loader as utils
+import ONR.utils as utils
 
 import tensorflow as tf
-import numpy as np
 
 import time
 import os
@@ -11,15 +10,15 @@ class Convnet:
     def __init__(self, batch_size=128, learning_rate=0.001):
         self.batch_size = batch_size
         self.lr = learning_rate
-        # self.gstep = tf.Variable(0, dtype=tf.int32, trainable=False, name='global_step')
         self.skip_step = 20
         self.n_test = 10000
 
     def _get_data(self):
+        """Grabs data from MNIST dataset"""
         with tf.name_scope('data'):
             train_data, test_data = utils.get_mnist_dataset(self.batch_size)
             self.iterator = tf.data.Iterator.from_structure(train_data.output_types,
-                                                       train_data.output_shapes)
+                                                            train_data.output_shapes)
             img, self.label = self.iterator.get_next()
             self.img = tf.reshape(img, shape=[-1, 28, 28, 1])
 
@@ -27,6 +26,7 @@ class Convnet:
             self.test_init = self.iterator.make_initializer(test_data)  # initializer for train_data
 
     def conv_relu(self, inputs, filters, k_size, stride, padding, scope_name):
+        """Creates convolution layer and relu activation layer"""
         with tf.variable_scope(scope_name, reuse=tf.AUTO_REUSE) as scope:
             in_channels = inputs.shape[-1]
             kernel = tf.get_variable('kernel',
@@ -39,6 +39,7 @@ class Convnet:
         return tf.nn.relu(conv + biases, name=scope.name)
 
     def maxpool(self, inputs, k_size, stride, padding='VALID', scope_name='pool'):
+        """Creates max pooling layer"""
         with tf.variable_scope(scope_name, reuse=tf.AUTO_REUSE) as scope:
             pool = tf.nn.max_pool(inputs,
                                   ksize=[1, k_size, k_size, 1],
@@ -47,6 +48,7 @@ class Convnet:
         return pool
 
     def fully_connected(self, inputs, out_dim, scope_name='fc'):
+        """Creates fully connected layer"""
         with tf.variable_scope(scope_name, reuse=tf.AUTO_REUSE) as scope:
             in_dim = inputs.shape[-1]
             w = tf.get_variable('weights', [in_dim, out_dim],
@@ -57,6 +59,7 @@ class Convnet:
         return out
 
     def _create_model(self):
+        """Creates CNN model"""
         conv1 = self.conv_relu(inputs=self.img,
                                filters=32,
                                k_size=5,
@@ -78,16 +81,19 @@ class Convnet:
         self.logits = self.fully_connected(dropout, 10, scope_name='logits')
 
     def _create_loss(self):
+        """Creates cross entropy loss"""
         with tf.name_scope("loss"):
             entropy = tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.label, logits=self.logits)
             self.loss = tf.reduce_mean(entropy, name="loss")
 
     def _create_optimizer(self):
+        """Creates AdamOptimizer"""
         self.gstep = tf.get_variable(name='global_step', dtype=tf.int32,
                                      initializer=tf.constant(0), trainable=False)
         self.opt = tf.train.AdamOptimizer(self.lr).minimize(self.loss, global_step=self.gstep)
 
     def _create_summaries(self):
+        """Creates summary of loss and accuracy"""
         with tf.name_scope('summaries'):
             tf.summary.scalar('loss', self.loss)
             tf.summary.scalar('accuracy', self.accuracy)
@@ -95,15 +101,14 @@ class Convnet:
             self.summary_op = tf.summary.merge_all()
 
     def evaluate(self):
-        '''
-        Count the number of right predictions in a batch
-        '''
+        """Counts the number of right predictions in a batch"""
         with tf.name_scope('predict'):
             preds = tf.nn.softmax(self.logits)
             correct_preds = tf.equal(tf.argmax(preds, 1), tf.argmax(self.label, 1))
             self.accuracy = tf.reduce_sum(tf.cast(correct_preds, tf.float32))
 
     def build(self):
+        """Builds the whole model"""
         self._get_data()
         self._create_model()
         self._create_loss()
@@ -112,9 +117,9 @@ class Convnet:
         self._create_summaries()
 
     def train_one_epoch(self, sess, saver, init, writer, epoch, step):
+        """Trains data for one epoch (as the input iterator is out of range)"""
         start_time = time.time()
         sess.run(init)
-        self.training = True
         total_loss = 0
         n_batches = 0
         try:
@@ -134,9 +139,9 @@ class Convnet:
         return step
 
     def eval_once(self, sess, init, writer, epoch, step):
+        """Tests data after training an epoch (as the input iterator is out of range)"""
         start_time = time.time()
         sess.run(init)
-        self.training = False
         total_correct_preds = 0
         try:
             while True:
@@ -150,11 +155,14 @@ class Convnet:
         print('Took: {0} seconds'.format(time.time() - start_time))
 
     def train(self, n_epochs):
+        """Trains the model multiple times"""
+        utils.safe_mkdir('../graphs/convnet')
         writer = tf.summary.FileWriter('../graphs/convnet', tf.get_default_graph())
 
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
             saver = tf.train.Saver()
+            utils.safe_mkdir('../checkpoints/')
             ckpt = tf.train.get_checkpoint_state('../checkpoints/')
             if ckpt and ckpt.model_checkpoint_path:
                 saver.restore(sess, ckpt.model_checkpoint_path)
@@ -169,6 +177,7 @@ class Convnet:
         writer.close()
 
     def predict(self, sess, img):
+        """Predicts the input image"""
         self.img = tf.reshape(tf.cast(img, tf.float32), shape=[1, 28, 28, 1])
         self._create_model()
 
@@ -177,8 +186,6 @@ class Convnet:
         if ckpt and ckpt.model_checkpoint_path:
             saver.restore(sess, ckpt.model_checkpoint_path)
         saver.restore(sess, ckpt.model_checkpoint_path)
-
-        self.img = tf.reshape(tf.cast(img, tf.float32), shape=[1, 28, 28, 1])
 
         pred = tf.nn.softmax(self.logits)
         prediction = tf.argmax(pred, 1)
@@ -195,4 +202,3 @@ if __name__ == '__main__':
     model = Convnet()
     model.build()
     model.train(n_epochs=30)
-
